@@ -2,6 +2,7 @@ from collections import deque
 import heapq
 import math
 import random
+from logic_engine import KnowledgeBase
 
 
 class SearchAgent:
@@ -11,6 +12,16 @@ class SearchAgent:
         self.plan = []
         self.active_algo = active_algo
         self.pos = (0, 0)
+        
+        # Instantiate the Knowledge Base
+        self.kb = KnowledgeBase()
+        
+        # Define Safety Rules (Horn Clauses)
+        # Rule 1: TargetVisible ∧ HasDust ⇒ SafeToEngage
+        self.kb.tell_rule(['TargetVisible', 'HasDust'], 'SafeToEngage')
+        
+        # Rule 2: SafeToEngage ∧ BloodseekerMissing ⇒ Retreat
+        self.kb.tell_rule(['SafeToEngage', 'BloodseekerMissing'], 'Retreat')
 
     # Step 1.1: Heuristic Functions
     def manhattan_distance(self, pos, goal):
@@ -54,6 +65,20 @@ class SearchAgent:
 
             for neighbor, _ in self.get_neighbors(current_pos, width, height, walls):
                 if neighbor not in reached_states:
+                    
+                    # --- Step 3.2: Knowledge Base Feasibility Check ---
+                    self.kb.clear_facts()
+                    
+                    if neighbor == goal_pos:  
+                        self.kb.tell_fact('TargetVisible')
+                        self.kb.tell_fact('HasDust')
+
+                    self.kb.forward_chain()
+
+                    # If 'Retreat' is deduced, mark tile as Infeasible and skip it
+                    if 'Retreat' in self.kb.facts:
+                        continue
+
                     g_new = g_cost + 1
 
                     if heuristic_type.lower() == 'euclidean':
